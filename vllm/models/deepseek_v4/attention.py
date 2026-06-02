@@ -14,7 +14,6 @@ import torch.nn.functional as F
 from transformers import DeepseekV2Config, DeepseekV3Config
 
 import vllm.envs as envs
-from vllm.compilation.breakable_cudagraph import eager_break_during_capture
 from vllm.model_executor.layers.linear import (
     ColumnParallelLinear,
     MergedColumnParallelLinear,
@@ -304,9 +303,11 @@ class DeepseekV4Attention(nn.Module, AttentionLayerBase, ABC):
             device=hidden_states.device,
         )
 
-        # attention_impl is wrapped with @eager_break_during_capture: this is
-        # where the breakable cudagraph capture breaks (the attention op runs
-        # eagerly between captured graph segments).
+        # Runs the input GEMMs, KV-cache insert, indexer/compressor, and the
+        # sparse MLA attention. forward_mqa is wrapped with
+        # @eager_break_during_capture, so under breakable cudagraph the capture
+        # breaks there (the data-dependent attention op runs eagerly) while the
+        # surrounding ops are captured.
         self.attention_impl(hidden_states, positions, o_padded)
         o = o_padded[:, : self.n_local_heads, :]
 
@@ -373,7 +374,6 @@ class DeepseekV4Attention(nn.Module, AttentionLayerBase, ABC):
 
         return qr_kv, kv_score, indexer_kv_score, indexer_weights
 
-    @eager_break_during_capture
     def attention_impl(
         self,
         hidden_states: torch.Tensor,

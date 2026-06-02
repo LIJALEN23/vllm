@@ -6,6 +6,7 @@ from typing import cast
 
 import torch
 
+from vllm.compilation.breakable_cudagraph import eager_break_during_capture
 from vllm.forward_context import get_forward_context
 from vllm.models.deepseek_v4.attention import DeepseekV4Attention
 from vllm.models.deepseek_v4.common.ops import dequantize_and_gather_k_cache
@@ -601,6 +602,7 @@ class DeepseekV4ROCMAiterMLAAttention(DeepseekV4Attention):
         )
         return self.wo_b(z.flatten(1))
 
+    @eager_break_during_capture
     def forward_mqa(
         self,
         q: torch.Tensor,

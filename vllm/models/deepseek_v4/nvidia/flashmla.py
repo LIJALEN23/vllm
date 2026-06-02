@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 import torch
 
+from vllm.compilation.breakable_cudagraph import eager_break_during_capture
 from vllm.forward_context import get_forward_context
 from vllm.models.deepseek_v4.attention import DeepseekV4Attention
 from vllm.models.deepseek_v4.common.ops import (
@@ -116,6 +117,7 @@ class DeepseekV4FlashMLAAttention(DeepseekV4Attention):
             )
         return 64 if num_heads <= 64 else 128
 
+    @eager_break_during_capture
     def forward_mqa(
         self,
         q: torch.Tensor,
